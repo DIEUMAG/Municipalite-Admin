@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../constants/api_constants.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ─── Models ───────────────────────────────────────────────────────────────────
 
@@ -108,10 +109,20 @@ class UserManagementService {
   UserManagementService({http.Client? client})
       : _client = client ?? http.Client();
 
-  Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      };
+//  Map<String, String> get _headers => {
+//        'Content-Type': 'application/json',
+//        'Accept': 'application/json',
+//      };
+
+      Future<Map<String, String>> get _authHeaders async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access') ?? '';
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+  }
 
   List _parseList(dynamic body) {
     if (body is Map) return body['results'] ?? [];
@@ -125,7 +136,7 @@ class UserManagementService {
     final uri = Uri.parse(
       '${ApiConstants.baseUrl}/citizens/${search.isNotEmpty ? '?search=$search' : ''}',
     );
-    final response = await _client.get(uri, headers: _headers);
+    final response = await _client.get(uri, headers: await _authHeaders);
     _check(response);
     return _parseList(jsonDecode(response.body))
         .map((j) => CitizenModel.fromJson(j))
@@ -135,7 +146,7 @@ class UserManagementService {
   Future<bool> toggleCitizenActive(int id) async {
     final response = await _client.patch(
       Uri.parse('${ApiConstants.baseUrl}/citizens/$id/toggle-active/'),
-      headers: _headers,
+      headers: await _authHeaders,
     );
     _check(response);
     return jsonDecode(response.body)['is_active'];
@@ -147,7 +158,7 @@ class UserManagementService {
     final uri = Uri.parse(
       '${ApiConstants.baseUrl}/agents/${search.isNotEmpty ? '?search=$search' : ''}',
     );
-    final response = await _client.get(uri, headers: _headers);
+    final response = await _client.get(uri, headers: await _authHeaders);
     _check(response);
     return _parseList(jsonDecode(response.body))
         .map((j) => AgentModel.fromJson(j))
@@ -158,7 +169,7 @@ class UserManagementService {
     final body = agent.toJson()..['password'] = password;
     final response = await _client.post(
       Uri.parse('${ApiConstants.baseUrl}/agents/'),
-      headers: _headers,
+      headers: await _authHeaders,
       body: jsonEncode(body),
     );
     _check(response);
@@ -169,7 +180,7 @@ class UserManagementService {
     assert(agent.id != null);
     final response = await _client.patch(
       Uri.parse('${ApiConstants.baseUrl}/agents/${agent.id}/'),
-      headers: _headers,
+      headers: await _authHeaders,
       body: jsonEncode(agent.toJson()),
     );
     _check(response);
@@ -179,7 +190,7 @@ class UserManagementService {
   Future<void> deleteAgent(int id) async {
     final response = await _client.delete(
       Uri.parse('${ApiConstants.baseUrl}/agents/$id/'),
-      headers: _headers,
+      headers: await _authHeaders,
     );
     if (response.statusCode != 204) {
       throw Exception('Delete failed: ${response.statusCode}');
@@ -189,7 +200,7 @@ class UserManagementService {
   Future<bool> toggleAgentActive(int id) async {
     final response = await _client.patch(
       Uri.parse('${ApiConstants.baseUrl}/agents/$id/toggle-active/'),
-      headers: _headers,
+      headers: await _authHeaders,
     );
     _check(response);
     return jsonDecode(response.body)['is_active'];
