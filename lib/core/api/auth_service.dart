@@ -7,7 +7,8 @@ class AuthService {
 
   // ⚠️ CHANGE PAR TON IP
   static const String baseUrl =
-      "http://127.0.0.1:8000/api";
+      //"http://127.0.0.1:8000/api"
+      "https://dieumags.pythonanywhere.com/api";
 
   Future<bool> login({
     required String username,
@@ -18,7 +19,8 @@ class AuthService {
 
       final response = await http.post(
 
-        Uri.parse('$baseUrl/token/'),
+        //Uri.parse('$baseUrl/token/'),
+        Uri.parse('$baseUrl/accounts/login/'),
 
         body: {
           'username': username,

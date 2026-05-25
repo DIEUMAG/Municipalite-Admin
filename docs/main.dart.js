@@ -46315,7 +46315,7 @@ var $async$pM=A.C(function(c,d){if(c===1){o.push(d)
 s=p}for(;;)switch(s){case 0:p=4
 j=t.N
 s=7
-return A.H(A.b2D(A.df("http://127.0.0.1:8000/api/token/"),A.aa(["username",b,"password",a],j,j)),$async$pM)
+return A.H(A.b2D(A.df("https://dieumags.pythonanywhere.com/api/accounts/login/"),A.aa(["username",b,"password",a],j,j)),$async$pM)
 case 7:n=d
 s=n.b===200?8:10
 break
