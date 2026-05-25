@@ -123,7 +123,7 @@ class UserManagementService {
 
   Future<List<CitizenModel>> fetchCitizens({String search = ''}) async {
     final uri = Uri.parse(
-      '${ApiConstants.baseUrl}/api/citizens/${search.isNotEmpty ? '?search=$search' : ''}',
+      '${ApiConstants.baseUrl}/citizens/${search.isNotEmpty ? '?search=$search' : ''}',
     );
     final response = await _client.get(uri, headers: _headers);
     _check(response);
@@ -134,7 +134,7 @@ class UserManagementService {
 
   Future<bool> toggleCitizenActive(int id) async {
     final response = await _client.patch(
-      Uri.parse('${ApiConstants.baseUrl}/api/citizens/$id/toggle-active/'),
+      Uri.parse('${ApiConstants.baseUrl}/citizens/$id/toggle-active/'),
       headers: _headers,
     );
     _check(response);
@@ -145,7 +145,7 @@ class UserManagementService {
 
   Future<List<AgentModel>> fetchAgents({String search = ''}) async {
     final uri = Uri.parse(
-      '${ApiConstants.baseUrl}/api/agents/${search.isNotEmpty ? '?search=$search' : ''}',
+      '${ApiConstants.baseUrl}/agents/${search.isNotEmpty ? '?search=$search' : ''}',
     );
     final response = await _client.get(uri, headers: _headers);
     _check(response);
@@ -157,7 +157,7 @@ class UserManagementService {
   Future<AgentModel> createAgent(AgentModel agent, String password) async {
     final body = agent.toJson()..['password'] = password;
     final response = await _client.post(
-      Uri.parse('${ApiConstants.baseUrl}/api/agents/'),
+      Uri.parse('${ApiConstants.baseUrl}/agents/'),
       headers: _headers,
       body: jsonEncode(body),
     );
@@ -168,7 +168,7 @@ class UserManagementService {
   Future<AgentModel> updateAgent(AgentModel agent) async {
     assert(agent.id != null);
     final response = await _client.patch(
-      Uri.parse('${ApiConstants.baseUrl}/api/agents/${agent.id}/'),
+      Uri.parse('${ApiConstants.baseUrl}/agents/${agent.id}/'),
       headers: _headers,
       body: jsonEncode(agent.toJson()),
     );
@@ -178,7 +178,7 @@ class UserManagementService {
 
   Future<void> deleteAgent(int id) async {
     final response = await _client.delete(
-      Uri.parse('${ApiConstants.baseUrl}/api/agents/$id/'),
+      Uri.parse('${ApiConstants.baseUrl}/agents/$id/'),
       headers: _headers,
     );
     if (response.statusCode != 204) {
@@ -188,7 +188,7 @@ class UserManagementService {
 
   Future<bool> toggleAgentActive(int id) async {
     final response = await _client.patch(
-      Uri.parse('${ApiConstants.baseUrl}/api/agents/$id/toggle-active/'),
+      Uri.parse('${ApiConstants.baseUrl}/agents/$id/toggle-active/'),
       headers: _headers,
     );
     _check(response);

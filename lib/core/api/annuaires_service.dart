@@ -233,7 +233,7 @@ class AnnuairesApiService {
   /// GET /api/services/
   Future<List<ServiceModel>> fetchServices() async {
     final response = await _client.get(
-      Uri.parse('${ApiConstants.baseUrl}/api/services/'),
+      Uri.parse('${ApiConstants.baseUrl}/services/'),
       headers: _headers,
     );
     _checkStatus(response);
@@ -245,7 +245,7 @@ class AnnuairesApiService {
   /// GET /api/entries/?service=<serviceId>
   Future<List<DirectoryEntry>> fetchEntriesByService(int serviceId) async {
     final response = await _client.get(
-      Uri.parse('${ApiConstants.baseUrl}/api/entries/?service=$serviceId'),
+      Uri.parse('${ApiConstants.baseUrl}/entries/?service=$serviceId'),
       headers: _headers,
     );
     _checkStatus(response);
@@ -257,7 +257,7 @@ class AnnuairesApiService {
   /// POST /api/entries/
   Future<DirectoryEntry> createEntry(DirectoryEntry entry) async {
     final response = await _client.post(
-      Uri.parse('${ApiConstants.baseUrl}/api/entries/'),
+      Uri.parse('${ApiConstants.baseUrl}/entries/'),
       headers: _headers,
       body: jsonEncode(entry.toJson()),
     );
@@ -269,7 +269,7 @@ class AnnuairesApiService {
   Future<DirectoryEntry> updateEntry(DirectoryEntry entry) async {
     assert(entry.id != null, 'Entry must have an id to update');
     final response = await _client.patch(
-      Uri.parse('${ApiConstants.baseUrl}/api/entries/${entry.id}/'),
+      Uri.parse('${ApiConstants.baseUrl}/entries/${entry.id}/'),
       headers: _headers,
       body: jsonEncode(entry.toJson()),
     );
@@ -280,7 +280,7 @@ class AnnuairesApiService {
   /// DELETE /api/entries/<id>/
   Future<void> deleteEntry(int id) async {
     final response = await _client.delete(
-      Uri.parse('${ApiConstants.baseUrl}/api/entries/$id/'),
+      Uri.parse('${ApiConstants.baseUrl}/entries/$id/'),
       headers: _headers,
     );
     if (response.statusCode != 204) {

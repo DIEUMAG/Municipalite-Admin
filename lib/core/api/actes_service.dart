@@ -58,7 +58,7 @@ class ActesService {
   Future<List<ActeModel>> fetchActes({String? typeActe}) async {
     final query = typeActe != null ? '?type_acte=$typeActe' : '';
     final response = await _client.get(
-      Uri.parse('${ApiConstants.baseUrl}/api/actes/$query'),
+      Uri.parse('${ApiConstants.baseUrl}/actes/$query'),
       headers: {'Accept': 'application/json'},
     );
     _check(response);
@@ -74,7 +74,7 @@ class ActesService {
     String nomComplet = '',
     String description = '',
   }) async {
-    final uri = Uri.parse('${ApiConstants.baseUrl}/api/actes/');
+    final uri = Uri.parse('${ApiConstants.baseUrl}/actes/');
     final request = http.MultipartRequest('POST', uri)
       ..fields['type_acte'] = typeActe
       ..fields['nom_complet'] = nomComplet
@@ -94,7 +94,7 @@ class ActesService {
   /// DELETE /api/actes/<id>/
   Future<void> deleteActe(int id) async {
     final response = await _client.delete(
-      Uri.parse('${ApiConstants.baseUrl}/api/actes/$id/'),
+      Uri.parse('${ApiConstants.baseUrl}/actes/$id/'),
       headers: {'Accept': 'application/json'},
     );
     if (response.statusCode != 204) {
