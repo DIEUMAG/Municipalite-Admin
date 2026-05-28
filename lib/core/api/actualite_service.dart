@@ -50,11 +50,13 @@ class ActualiteService {
   // PUBLIER ACTUALITE
   // =========================
 
+  /// [fichiers] = liste de XFile (image_picker)
+  /// Compatible Flutter Web ET mobile
   Future<bool> publierActualite({
 
     required String titre,
     required String corps,
-    required List<String> fichiers,
+    required List<MediaUpload> fichiers,
 
   }) async {
 
@@ -71,8 +73,8 @@ class ActualiteService {
 
       });
 
-      // ADD FILES
-      for (String path in fichiers) {
+      // ADD FILES via bytes (compatible Web + Mobile)
+      for (final media in fichiers) {
 
         formData.files.add(
 
@@ -80,8 +82,9 @@ class ActualiteService {
 
             'medias',
 
-            await MultipartFile.fromFile(
-              path,
+            MultipartFile.fromBytes(
+              media.bytes,
+              filename: media.filename,
             ),
           ),
         );
@@ -144,7 +147,7 @@ class ActualiteService {
     required int id,
     required String titre,
     required String corps,
-    required List<String> fichiers,
+    required List<MediaUpload> fichiers,
 
   }) async {
 
@@ -161,8 +164,8 @@ class ActualiteService {
 
       });
 
-      // ADD NEW LOCAL FILES ONLY
-      for (String path in fichiers) {
+      // ADD FILES via bytes (compatible Web + Mobile)
+      for (final media in fichiers) {
 
         formData.files.add(
 
@@ -170,8 +173,9 @@ class ActualiteService {
 
             'medias',
 
-            await MultipartFile.fromFile(
-              path,
+            MultipartFile.fromBytes(
+              media.bytes,
+              filename: media.filename,
             ),
           ),
         );
@@ -239,7 +243,6 @@ class ActualiteService {
       final token =
           await AuthService().getAccessToken();
 
-      // DELETE REQUEST
       final response = await dio.delete(
 
         '${ApiConstants.baseUrl}/actualites/$id/',
@@ -251,7 +254,6 @@ class ActualiteService {
         ),
       );
 
-      // 204 No Content = succès standard pour DELETE
       if (response.statusCode == 200 ||
           response.statusCode == 204) {
 
@@ -277,5 +279,36 @@ class ActualiteService {
 
       return false;
     }
+  }
+}
+
+// =========================
+// MODÈLE MEDIA UPLOAD
+// Compatible Web + Mobile
+// =========================
+
+class MediaUpload {
+
+  final List<int> bytes;
+  final String filename;
+  final bool isVideo;
+
+  const MediaUpload({
+    required this.bytes,
+    required this.filename,
+    required this.isVideo,
+  });
+
+  /// Crée un MediaUpload depuis un XFile (image_picker)
+  static Future<MediaUpload> fromXFile(
+    dynamic xfile, {
+    required bool isVideo,
+  }) async {
+    final bytes = await xfile.readAsBytes();
+    return MediaUpload(
+      bytes: bytes,
+      filename: xfile.name,
+      isVideo: isVideo,
+    );
   }
 }

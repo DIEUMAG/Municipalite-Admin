@@ -1,6 +1,6 @@
 // lib/screens/actualites_screen.dart
 
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -17,16 +17,18 @@ class ActualitesScreen extends StatefulWidget {
 }
 
 class _ActualitesScreenState extends State<ActualitesScreen> {
+
   final TextEditingController titreController = TextEditingController();
   final TextEditingController corpsController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final ImagePicker picker = ImagePicker();
 
   late Future<List<ActualiteModel>> actualitesFuture;
 
-  final ImagePicker picker = ImagePicker();
-  final List<LocalMediaModel> selectedMedias = [];
+  // ✅ MediaUpload au lieu de LocalMediaModel → compatible Web + Mobile
+  final List<MediaUpload> selectedMedias = [];
 
-  // ── Édition ────────────────────────────────────────────────────────────────
-  ActualiteModel? _editingActualite; // null → mode création, non-null → édition
+  ActualiteModel? _editingActualite;
 
   @override
   void initState() {
@@ -38,10 +40,10 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
   void dispose() {
     titreController.dispose();
     corpsController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  // ── Chargement ─────────────────────────────────────────────────────────────
   void _loadActualites() {
     setState(() {
       actualitesFuture = ActualiteService().getActualites();
@@ -62,11 +64,13 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
                 Navigator.pop(context);
                 final images = await picker.pickMultiImage();
                 if (images.isNotEmpty) {
-                  setState(() {
-                    selectedMedias.addAll(
-                      images.map((e) => LocalMediaModel(path: e.path, isVideo: false)),
-                    );
-                  });
+                  // ✅ readAsBytes() → compatible Web + Mobile
+                  final uploads = await Future.wait(
+                    images.map(
+                      (e) => MediaUpload.fromXFile(e, isVideo: false),
+                    ),
+                  );
+                  setState(() => selectedMedias.addAll(uploads));
                 }
               },
             ),
@@ -75,11 +79,15 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
               title: const Text("Ajouter une vidéo"),
               onTap: () async {
                 Navigator.pop(context);
-                final video = await picker.pickVideo(source: ImageSource.gallery);
+                final video = await picker.pickVideo(
+                  source: ImageSource.gallery,
+                );
                 if (video != null) {
-                  setState(() {
-                    selectedMedias.add(LocalMediaModel(path: video.path, isVideo: true));
-                  });
+                  final upload = await MediaUpload.fromXFile(
+                    video,
+                    isVideo: true,
+                  );
+                  setState(() => selectedMedias.add(upload));
                 }
               },
             ),
@@ -89,7 +97,7 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
     );
   }
 
-  // ── Réinitialiser le formulaire ─────────────────────────────────────────────
+  // ── Reset formulaire ───────────────────────────────────────────────────────
   void _resetForm() {
     setState(() {
       titreController.clear();
@@ -99,16 +107,14 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
     });
   }
 
-  // ── Pré-remplir le formulaire pour l'édition ────────────────────────────────
+  // ── Pré-remplir pour édition ───────────────────────────────────────────────
   void _startEditing(ActualiteModel actualite) {
     setState(() {
       _editingActualite = actualite;
       titreController.text = actualite.titre;
       corpsController.text = actualite.corps;
-      selectedMedias.clear(); // on repart de zéro pour les nouveaux médias
+      selectedMedias.clear();
     });
-
-    // Scroll vers le haut pour voir le formulaire
     _scrollController.animateTo(
       0,
       duration: const Duration(milliseconds: 400),
@@ -116,57 +122,51 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
     );
   }
 
-  // ── Publication / Mise à jour ───────────────────────────────────────────────
+  // ── Soumettre (création ou modification) ───────────────────────────────────
   Future<void> _soumettre() async {
-    if (titreController.text.trim().isEmpty || corpsController.text.trim().isEmpty) {
+    if (titreController.text.trim().isEmpty ||
+        corpsController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Veuillez remplir tous les champs")),
       );
       return;
     }
 
-    final fichiers = selectedMedias.map((m) => m.path).toList();
-
     bool success;
 
     if (_editingActualite != null) {
-      // ── Mode édition ──────────────────────────────────────────────────────
       success = await ActualiteService().modifierActualite(
         id: _editingActualite!.id,
         titre: titreController.text.trim(),
         corps: corpsController.text.trim(),
-        fichiers: fichiers,
+        fichiers: selectedMedias,
       );
-
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Actualité modifiée avec succès")),
-        );
-      }
     } else {
-      // ── Mode création ─────────────────────────────────────────────────────
       success = await ActualiteService().publierActualite(
         titre: titreController.text.trim(),
         corps: corpsController.text.trim(),
-        fichiers: fichiers,
+        fichiers: selectedMedias,
       );
-
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Actualité publiée avec succès")),
-        );
-      }
     }
 
-    if (!success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Erreur lors de l'opération")),
-      );
-      return;
-    }
+    if (!mounted) return;
 
-    _resetForm();
-    _loadActualites();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? _editingActualite != null
+                  ? "Actualité modifiée avec succès"
+                  : "Actualité publiée avec succès"
+              : "Erreur lors de l'opération",
+        ),
+      ),
+    );
+
+    if (success) {
+      _resetForm();
+      _loadActualites();
+    }
   }
 
   // ── Suppression ────────────────────────────────────────────────────────────
@@ -194,7 +194,9 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
 
     if (confirme != true) return;
 
-    final success = await ActualiteService().supprimerActualite(id: actualite.id);
+    final success = await ActualiteService().supprimerActualite(
+      id: actualite.id,
+    );
 
     if (!mounted) return;
 
@@ -209,13 +211,10 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
     );
 
     if (success) {
-      // Si on était en train d'éditer cet élément, on reset le formulaire
       if (_editingActualite?.id == actualite.id) _resetForm();
       _loadActualites();
     }
   }
-
-  final ScrollController _scrollController = ScrollController();
 
   // ── UI ─────────────────────────────────────────────────────────────────────
   @override
@@ -232,6 +231,7 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+
             // ── FORMULAIRE ──────────────────────────────────────────────────
             Card(
               elevation: 3,
@@ -240,12 +240,16 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // En-tête du formulaire avec indicateur d'édition
+
                     Row(
                       children: [
                         Icon(
-                          isEditing ? Icons.edit_note : Icons.add_box_outlined,
-                          color: isEditing ? Colors.orange : Theme.of(context).primaryColor,
+                          isEditing
+                              ? Icons.edit_note
+                              : Icons.add_box_outlined,
+                          color: isEditing
+                              ? Colors.orange
+                              : Theme.of(context).primaryColor,
                         ),
                         const SizedBox(width: 8),
                         Text(
@@ -263,7 +267,9 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
                             onPressed: _resetForm,
                             icon: const Icon(Icons.close, size: 18),
                             label: const Text("Annuler"),
-                            style: TextButton.styleFrom(foregroundColor: Colors.grey),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.grey,
+                            ),
                           ),
                       ],
                     ),
@@ -303,6 +309,7 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
 
                     const SizedBox(height: 10),
 
+                    // ✅ Aperçu via Image.memory (bytes) → compatible Web
                     if (selectedMedias.isNotEmpty)
                       SizedBox(
                         height: 100,
@@ -321,11 +328,15 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
                                     color: Colors.grey.shade200,
                                   ),
                                   child: media.isVideo
-                                      ? const Icon(Icons.videocam, size: 50)
+                                      ? const Icon(
+                                          Icons.videocam,
+                                          size: 50,
+                                        )
                                       : ClipRRect(
-                                          borderRadius: BorderRadius.circular(12),
-                                          child: Image.file(
-                                            File(media.path),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          child: Image.memory(
+                                            Uint8List.fromList(media.bytes),
                                             fit: BoxFit.cover,
                                           ),
                                         ),
@@ -334,7 +345,9 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
                                   top: 0,
                                   right: 0,
                                   child: GestureDetector(
-                                    onTap: () => setState(() => selectedMedias.removeAt(index)),
+                                    onTap: () => setState(
+                                      () => selectedMedias.removeAt(index),
+                                    ),
                                     child: Container(
                                       decoration: const BoxDecoration(
                                         color: Colors.red,
@@ -365,7 +378,9 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
                         ),
                         icon: Icon(isEditing ? Icons.save : Icons.publish),
                         label: Text(
-                          isEditing ? "Enregistrer les modifications" : "Publier l'actualité",
+                          isEditing
+                              ? "Enregistrer les modifications"
+                              : "Publier l'actualité",
                         ),
                       ),
                     ),
@@ -388,7 +403,7 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
 
             const SizedBox(height: 15),
 
-            // ── LISTE DES ACTUALITÉS ────────────────────────────────────────
+            // ── LISTE ───────────────────────────────────────────────────────
             FutureBuilder<List<ActualiteModel>>(
               future: actualitesFuture,
               builder: (context, snapshot) {
@@ -413,7 +428,8 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
 
                 return Column(
                   children: actualites.map((actualite) {
-                    final isCurrentlyEditing = _editingActualite?.id == actualite.id;
+                    final isCurrentlyEditing =
+                        _editingActualite?.id == actualite.id;
 
                     return Center(
                       child: ConstrainedBox(
@@ -423,7 +439,10 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                             side: isCurrentlyEditing
-                                ? const BorderSide(color: Colors.orange, width: 2)
+                                ? const BorderSide(
+                                    color: Colors.orange,
+                                    width: 2,
+                                  )
                                 : BorderSide.none,
                           ),
                           child: Padding(
@@ -431,9 +450,10 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // ── En-tête titre + actions ─────────────────
+
                                 Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
                                   children: [
                                     Expanded(
                                       child: Text(
@@ -444,7 +464,6 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
                                         ),
                                       ),
                                     ),
-                                    // Bouton Éditer
                                     IconButton(
                                       tooltip: "Modifier",
                                       icon: Icon(
@@ -453,16 +472,17 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
                                             ? Colors.orange
                                             : Colors.blueGrey,
                                       ),
-                                      onPressed: () => _startEditing(actualite),
+                                      onPressed: () =>
+                                          _startEditing(actualite),
                                     ),
-                                    // Bouton Supprimer
                                     IconButton(
                                       tooltip: "Supprimer",
                                       icon: const Icon(
                                         Icons.delete_outline,
                                         color: Colors.red,
                                       ),
-                                      onPressed: () => _supprimerActualite(actualite),
+                                      onPressed: () =>
+                                          _supprimerActualite(actualite),
                                     ),
                                   ],
                                 ),
@@ -473,7 +493,6 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
 
                                 const SizedBox(height: 12),
 
-                                // ── Médias ──────────────────────────────────
                                 if (actualite.medias.isNotEmpty)
                                   SizedBox(
                                     height: 120,
@@ -481,18 +500,28 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
                                       scrollDirection: Axis.horizontal,
                                       itemCount: actualite.medias.length,
                                       itemBuilder: (context, index) {
-                                        final media = actualite.medias[index];
+                                        final media =
+                                            actualite.medias[index];
                                         return Container(
                                           width: 120,
-                                          margin: const EdgeInsets.only(right: 10),
+                                          margin: const EdgeInsets.only(
+                                            right: 10,
+                                          ),
                                           decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
                                             color: Colors.grey.shade200,
                                           ),
                                           child: media.isVideo
-                                              ? const Icon(Icons.videocam, size: 50)
+                                              ? const Icon(
+                                                  Icons.videocam,
+                                                  size: 50,
+                                                )
                                               : ClipRRect(
-                                                  borderRadius: BorderRadius.circular(12),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                    12,
+                                                  ),
                                                   child: Image.network(
                                                     media.fichier,
                                                     fit: BoxFit.cover,
@@ -505,7 +534,6 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
 
                                 const SizedBox(height: 10),
 
-                                // ── Date ────────────────────────────────────
                                 Row(
                                   children: [
                                     Icon(
@@ -515,7 +543,8 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      DateFormat("dd/MM/yyyy à HH:mm").format(
+                                      DateFormat("dd/MM/yyyy à HH:mm")
+                                          .format(
                                         DateTime.parse(actualite.createdAt),
                                       ),
                                       style: TextStyle(
@@ -540,12 +569,4 @@ class _ActualitesScreenState extends State<ActualitesScreen> {
       ),
     );
   }
-}
-
-// ── Modèle local pour la sélection avant upload ────────────────────────────
-class LocalMediaModel {
-  final String path;
-  final bool isVideo;
-
-  LocalMediaModel({required this.path, required this.isVideo});
 }
