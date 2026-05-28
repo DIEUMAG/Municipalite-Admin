@@ -134,4 +134,148 @@ class ActualiteService {
       return false;
     }
   }
+
+  // =========================
+  // MODIFIER ACTUALITE
+  // =========================
+
+  Future<bool> modifierActualite({
+
+    required int id,
+    required String titre,
+    required String corps,
+    required List<String> fichiers,
+
+  }) async {
+
+    try {
+
+      final token =
+          await AuthService().getAccessToken();
+
+      // FORM DATA
+      FormData formData = FormData.fromMap({
+
+        'titre': titre,
+        'corps': corps,
+
+      });
+
+      // ADD NEW LOCAL FILES ONLY
+      for (String path in fichiers) {
+
+        formData.files.add(
+
+          MapEntry(
+
+            'medias',
+
+            await MultipartFile.fromFile(
+              path,
+            ),
+          ),
+        );
+      }
+
+      // PUT REQUEST
+      final response = await dio.put(
+
+        '${ApiConstants.baseUrl}/actualites/$id/',
+
+        data: formData,
+
+        options: Options(
+
+          headers: {
+
+            'Authorization':
+                'Bearer $token',
+
+            'Content-Type':
+                'multipart/form-data',
+          },
+        ),
+      );
+
+      // SUCCESS
+      if (response.statusCode == 200) {
+
+        return true;
+      }
+
+      return false;
+
+    } on DioException catch (e) {
+
+      print(
+        'Dio Error modifierActualite: '
+        '${e.response?.data}',
+      );
+
+      return false;
+
+    } catch (e) {
+
+      print(
+        'Erreur modifierActualite: $e',
+      );
+
+      return false;
+    }
+  }
+
+  // =========================
+  // SUPPRIMER ACTUALITE
+  // =========================
+
+  Future<bool> supprimerActualite({
+
+    required int id,
+
+  }) async {
+
+    try {
+
+      final token =
+          await AuthService().getAccessToken();
+
+      // DELETE REQUEST
+      final response = await dio.delete(
+
+        '${ApiConstants.baseUrl}/actualites/$id/',
+
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      // 204 No Content = succès standard pour DELETE
+      if (response.statusCode == 200 ||
+          response.statusCode == 204) {
+
+        return true;
+      }
+
+      return false;
+
+    } on DioException catch (e) {
+
+      print(
+        'Dio Error supprimerActualite: '
+        '${e.response?.data}',
+      );
+
+      return false;
+
+    } catch (e) {
+
+      print(
+        'Erreur supprimerActualite: $e',
+      );
+
+      return false;
+    }
+  }
 }
